@@ -1,6 +1,6 @@
 # MPEG4Generator
-Video generator for NS-3
-A configurable generator of MPEG-4-like UDP based traffics
+A configurable generator of MPEG-4-like UDP based traffics. 
+
 It is implemented as a separate module so-called (MpegPktGenClient). A helper class/module (MpegPktGenClientHelper) at the application level is also implemented to facilitate it's use. This Video generator client can work with any udp based server like the already implemented in NS-3 UdpServer and its helper UdpServerHelper as we will show through an example here after.
 The Mpeg packet generator module is a configurable application level protocol through the following key attributes in the scenario script (a default value is set to every attribute).
 1. GopLength: number of frames (I + P or B) per Burst period, by default, its value is set to (15)
