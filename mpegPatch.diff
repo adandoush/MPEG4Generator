@@ -1,0 +1,1147 @@
+diff -r 7e561c4b7802 -r 5185cf3b5550 scratch/video-gen-client-server-test.cc
+--- /dev/null	Thu Jan 01 00:00:00 1970 +0000
++++ b/scratch/video-gen-client-server-test.cc	Tue Jan 19 15:37:29 2016 +0100
+@@ -0,0 +1,205 @@
++/* -*- Mode:C++; c-file-style:"gnu"; indent-tabs-mode:nil; -*- */
++/*
++ *  Copyright (c) 2014/2015 INRIA, ALSTOM Transport
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License version 2 as
++ * published by the Free Software Foundation;
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
++ *
++ * Author: Abdulhalim DANDOUSH <abdulhalim.dandoush@inria.fr>
++ */
++
++
++// Network topology
++//
++//       n0    n1
++//       |     |
++//       =======
++//         P2P
++//
++// - UDP flows from n0 to n1
++// ./waf --run video-gen-client-server-test
++
++#include <fstream>
++#include "ns3/core-module.h"
++#include "ns3/point-to-point-module.h"
++#include "ns3/applications-module.h"
++#include "ns3/internet-module.h"
++#include "ns3/ethernet-header.h"
++#include "ns3/ethernet-trailer.h"
++#include "ns3/ipv4-header.h"
++
++
++
++using namespace ns3;
++
++NS_LOG_COMPONENT_DEFINE ("MpegPktGenClientServerExample");
++uint16_t port = 4000;
++uint32_t totalRxNum = 0 , totalTxNum = 0;
++
++void
++RxIpv4l3VideoPkt(std::string, Ptr<const Packet> p, Ptr<Ipv4> ipv4,  uint32_t)
++{
++  Ipv4InterfaceAddress iaddr = ipv4->GetAddress (1,0);
++  Ipv4Address ipv4Addr = iaddr.GetLocal ();
++  Ptr<Packet> m_currentPacket;
++  UdpHeader hdr;
++  Ipv4Header hdp;
++  SeqTsHeader hds;
++  m_currentPacket = p->Copy();
++  m_currentPacket->RemoveHeader(hdp);// remove ip header
++  m_currentPacket->RemoveHeader(hdr); //remove udp header
++  uint16_t dest_port = hdr.GetDestinationPort();
++  uint16_t src_port = hdr.GetSourcePort();
++  NS_LOG_INFO( "At time " << Simulator::Now().GetSeconds() <<"s, Node:" <<ipv4Addr<< " RCV somthing of size: " <<
++				            p->GetSize() << ", hdp dest=" << hdp.GetDestination() << " hdp source=" << hdp.GetSource()<<", et dest port=" <<dest_port <<" , et source port = " << src_port );
++  if (dest_port == port )
++	{
++	  totalRxNum++;
++      NS_LOG_INFO( "At time " << Simulator::Now().GetSeconds() <<"s, Node:" <<ipv4Addr<< ", Rcv Video pkt: " << *p  << "of size: " <<
++				 					            p->GetSize()<< " total Video pkts recved is:"<< totalRxNum);
++	 }
++}
++void
++TxIpv4l3VideoPkt (std::string, Ptr<const Packet> p, Ptr<Ipv4> ipv4,  uint32_t)
++{
++  Ipv4InterfaceAddress iaddr = ipv4->GetAddress (1,0);
++  Ipv4Address ipv4Addr = iaddr.GetLocal ();
++  Ptr<Packet> m_currentPacket;
++  UdpHeader hdr;
++  Ipv4Header hdp;
++  SeqTsHeader hds;
++  m_currentPacket = p->Copy();
++  m_currentPacket->RemoveHeader(hdp);// remove ip header
++  m_currentPacket->RemoveHeader(hdr); //remove udp header
++  uint16_t dest_port = hdr.GetDestinationPort();
++  uint16_t src_port = hdr.GetSourcePort();
++  NS_LOG_INFO( "At time " << Simulator::Now().GetSeconds() <<"s, Node:" <<ipv4Addr<< " TX somthing of size: " <<
++							            p->GetSize() << ", hdp dest=" << hdp.GetDestination() << " hdp source=" << hdp.GetSource()<<", et dest port=" <<dest_port <<" , et source port = " << src_port );
++  if (dest_port == port )
++    {
++	  totalTxNum++;
++      NS_LOG_INFO( "At time " << Simulator::Now().GetSeconds() <<"s, Node:" <<ipv4Addr<< ", TX Video pkt: " << *p  << "of size: " <<
++							 					            p->GetSize()<< " total Video pkts sent is:"<< totalTxNum);
++	}
++
++}
++
++
++void
++Statistics ()
++{
++  Time time = Simulator::Now ();
++  std::cout << std::endl << "====================================================Statistics==================================================="<< std::endl;
++  std::cout << "Until time " << Simulator::Now().GetSeconds()<<std::endl;
++  std::cout << "Total number of Tx Video pkts by Client is: "<<totalTxNum <<std::endl;
++  std::cout << "Total number of Recv Video pkts by server is: "<<totalRxNum <<std::endl;
++  std::cout << "=======================================================End======================================================="<< std::endl;
++}
++
++int
++main (int argc, char *argv[])
++{
++//
++// Enable logging for the parameterized MPEG-4 traffic generator client and its udp server
++//
++  LogComponentEnable ("MpegPktGenClient", LOG_LEVEL_ALL);
++  LogComponentEnable ("UdpServer", LOG_LEVEL_ALL);
++  LogComponentEnable ("MpegPktGenClientServerExample", LOG_LEVEL_ALL);
++
++  bool useV6 = false;
++
++  Address serverAddress;
++
++  CommandLine cmd;
++  cmd.AddValue ("useIpv6", "Use Ipv6", useV6);
++  cmd.Parse (argc, argv);
++
++//
++// Explicitly create the nodes required by the topology (shown above).
++//
++  NS_LOG_INFO ("Create nodes.");
++  NodeContainer n;
++  n.Create (2);
++
++  InternetStackHelper internet;
++  internet.Install (n);
++
++  NS_LOG_INFO ("Create Point to Point channel.");
++
++  PointToPointHelper p2p;
++  p2p.SetDeviceAttribute("DataRate", StringValue("100Mbps"));
++  p2p.SetChannelAttribute("Delay", StringValue("1ms"));
++
++  NetDeviceContainer d = p2p.Install (n);
++
++  NS_LOG_INFO ("Assign IP Addresses.");
++  if (useV6 == false)
++    {
++      Ipv4AddressHelper ipv4;
++      ipv4.SetBase ("192.168.1.0", "255.255.255.0");
++      Ipv4InterfaceContainer i = ipv4.Assign (d);
++      serverAddress = Address (i.GetAddress (1));
++    }
++  else
++    {
++      Ipv6AddressHelper ipv6;
++      ipv6.SetBase ("2001:0000:f00d:cafe::", Ipv6Prefix (64));
++      Ipv6InterfaceContainer i6 = ipv6.Assign (d);
++      serverAddress = Address(i6.GetAddress (1,1));
++    }
++
++  NS_LOG_INFO ("Create Applications.");
++
++//
++// Create one udpServer applications on node one to receive the video packets from our generator.
++//
++
++  UdpServerHelper server (port);
++  ApplicationContainer apps = server.Install (n.Get (1));
++  apps.Start (Seconds (1));
++  apps.Stop (Seconds (16));
++
++//
++// Create one MpegPktGenClient application to send UDP datagrams from node zero to
++// node one.
++//
++  uint32_t MaxPacketSize = 1460;
++  uint16_t GopLength = 15;
++  std::string fn = "mpeg.dat";
++  MpegPktGenClientHelper client (serverAddress, port,"");
++  client.SetAttribute ("MaxPacketSize", UintegerValue (MaxPacketSize));//def 1460 Bytes
++  client.SetAttribute ("VideoFilename", StringValue (fn));
++  client.SetAttribute("GopLength",UintegerValue (GopLength));//def 15
++  client.SetAttribute("ImageRate",UintegerValue (12));//def 12
++  client.SetAttribute("IframeSize",UintegerValue (1200));// def 1200 kbits
++  client.SetAttribute("AvBitRate",DoubleValue (2.0));//def 2 mbps
++  client.SetAttribute("PeakRate",DoubleValue (10.0));//def 10 mbps
++  apps = client.Install (n.Get (0));
++  apps.Start (Seconds (1.0));
++  apps.Stop (Seconds (15.0));
++
++
++  Config::Connect("/NodeList/1/$ns3::Ipv4L3Protocol/Rx", MakeCallback(&RxIpv4l3VideoPkt));
++  Config::Connect("/NodeList/0/$ns3::Ipv4L3Protocol/Tx", MakeCallback(&TxIpv4l3VideoPkt));
++
++
++  p2p.EnableAsciiAll("Video-generator-client-test");
++  p2p.EnablePcapAll("Video-generator-client-test",true);
++
++  NS_LOG_INFO ("Run Simulation.");
++  Simulator::Stop(Seconds(20));
++  Simulator::Run ();
++  Statistics();
++  Simulator::Destroy ();
++  NS_LOG_INFO ("Done.");
++}
+diff -r 7e561c4b7802 -r 5185cf3b5550 src/applications/helper/mpeg-pkt-gen-client-helper.cc
+--- /dev/null	Thu Jan 01 00:00:00 1970 +0000
++++ b/src/applications/helper/mpeg-pkt-gen-client-helper.cc	Tue Jan 19 15:37:29 2016 +0100
+@@ -0,0 +1,77 @@
++/* -*- Mode:C++; c-file-style:"gnu"; indent-tabs-mode:nil; -*- */
++/*
++ *  Copyright (c) 2014/2015 INRIA, ALSTOM Transport
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License version 2 as
++ * published by the Free Software Foundation;
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
++ *
++ * Author: Abdulhalim DANDOUSH <abdulhalim.dandoush@inria.fr>
++ */
++
++#include "ns3/mpeg-pkt-gen-client-helper.h"
++#include "ns3/mpeg-pkt-gen-client.h"
++#include "ns3/uinteger.h"
++#include "ns3/string.h"
++
++namespace ns3 {
++
++
++MpegPktGenClientHelper::MpegPktGenClientHelper ()
++{
++}
++
++MpegPktGenClientHelper::MpegPktGenClientHelper (Address address, uint16_t port, std::string filename)
++{
++  m_factory.SetTypeId (MpegPktGenClient::GetTypeId ());
++  SetAttribute ("RemoteAddress", AddressValue (address));
++  SetAttribute ("RemotePort", UintegerValue (port));
++  SetAttribute ("VideoFilename", StringValue (filename));
++}
++
++MpegPktGenClientHelper::MpegPktGenClientHelper (Ipv4Address address, uint16_t port, std::string filename)
++{
++  m_factory.SetTypeId (MpegPktGenClient::GetTypeId ());
++  SetAttribute ("RemoteAddress", AddressValue (Address (address)));
++  SetAttribute ("RemotePort", UintegerValue (port));
++  SetAttribute ("VideoFilename", StringValue (filename));
++}
++
++MpegPktGenClientHelper::MpegPktGenClientHelper (Ipv6Address address, uint16_t port, std::string filename)
++{
++  m_factory.SetTypeId (MpegPktGenClient::GetTypeId ());
++  SetAttribute ("RemoteAddress", AddressValue (Address (address)));
++  SetAttribute ("RemotePort", UintegerValue (port));
++  SetAttribute ("VideoFilename", StringValue (filename));
++}
++
++void
++MpegPktGenClientHelper::SetAttribute (std::string name, const AttributeValue &value)
++{
++  m_factory.Set (name, value);
++}
++
++ApplicationContainer
++MpegPktGenClientHelper::Install (NodeContainer c)
++{
++  ApplicationContainer apps;
++  for (NodeContainer::Iterator i = c.Begin (); i != c.End (); ++i)
++    {
++      Ptr<Node> node = *i;
++      Ptr<MpegPktGenClient> client = m_factory.Create<MpegPktGenClient> ();
++      node->AddApplication (client);
++      apps.Add (client);
++    }
++  return apps;
++}
++
++} // namespace ns3
+diff -r 7e561c4b7802 -r 5185cf3b5550 src/applications/helper/mpeg-pkt-gen-client-helper.h
+--- /dev/null	Thu Jan 01 00:00:00 1970 +0000
++++ b/src/applications/helper/mpeg-pkt-gen-client-helper.h	Tue Jan 19 15:37:29 2016 +0100
+@@ -0,0 +1,86 @@
++/* -*- Mode:C++; c-file-style:"gnu"; indent-tabs-mode:nil; -*- */
++/*
++  *  Copyright (c) 2014/2015 INRIA, ALSTOM Transport
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License version 2 as
++ * published by the Free Software Foundation;
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
++ *
++ * Author: Abdulhalim DANDOUSH <abdulhalim.dandoush@inria.fr>
++ */
++#ifndef MPEG_PKT_GEN_CLIENT_HELPER_H
++#define MPEG_PKT_GEN_CLIENT_HELPER_H
++
++#include <stdint.h>
++#include "ns3/application-container.h"
++#include "ns3/node-container.h"
++#include "ns3/object-factory.h"
++#include "ns3/ipv4-address.h"
++
++namespace ns3 {
++/**
++ * Parameterized MPEG-4 traffic generator
++ * Create MpegPktGenClient application which sends udp packets based on a generated
++ * file of an MPEG4 stream. The generated file will contain 4 columns:
++ * -1- the first one represents the frame index
++ * -2- the second one indicates the type of the frame: I, P or (even B types that is not used now)
++ * -3- the third one indicates the time on which the frame was generated by the encoder
++ * -4- the fourth one indicates the frame size in byte
++ * This file will be generated using a pre-defined parameters such as the Average bit rate, peak rate,
++ *  burst duration, buerst period, I-Frame size, GoP length and pkt size
++*/
++class MpegPktGenClientHelper
++{
++public:
++  /**
++   * Create MpegPktGenClientHelper which will make life easier for people trying
++   * to set up simulations with udp based video(mpeg-4)-client-server app.
++   *
++   */
++  MpegPktGenClientHelper ();
++
++  /**
++   * Create MpegPktGenClientHelper which will make life easier for people trying
++   * to set up simulations with udp-client-server.
++   *
++   * \param ip The IP address of the remote udp server
++   * \param port The port number of the remote udp server
++   * \param filename the file from which packet videos will be loaded
++   */
++  MpegPktGenClientHelper (Address ip, uint16_t port, std::string filename);
++  MpegPktGenClientHelper (Ipv4Address ip, uint16_t port, std::string filename);
++  MpegPktGenClientHelper (Ipv6Address ip, uint16_t port, std::string filename);
++
++  /**
++    * Record an attribute to be set in each Application after it is is created.
++    *
++    * \param name the name of the attribute to set
++    * \param value the value of the attribute to set
++    */
++  void SetAttribute (std::string name, const AttributeValue &value);
++
++  /**
++    * \param c the nodes
++    *
++    * Create one udp video client application on each of the input nodes
++    *
++    * \returns the applications created, one application per input node.
++    */
++  ApplicationContainer Install (NodeContainer c);
++
++private:
++  ObjectFactory m_factory;
++};
++
++} // namespace ns3
++
++#endif /* MPEG_PKT_GEN_CLIENT_H */
+diff -r 7e561c4b7802 -r 5185cf3b5550 src/applications/model/mpeg-pkt-gen-client.cc
+--- /dev/null	Thu Jan 01 00:00:00 1970 +0000
++++ b/src/applications/model/mpeg-pkt-gen-client.cc	Tue Jan 19 15:37:29 2016 +0100
+@@ -0,0 +1,546 @@
++/* -*- Mode:C++; c-file-style:"gnu"; indent-tabs-mode:nil; -*- */
++/*
++ *  Copyright (c) 2014/2015 INRIA, ALSTOM Transport
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License version 2 as
++ * published by the Free Software Foundation;
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
++ *
++ * Author: Author: Abdulhalim DANDOUSH <abdulhalim.dandoush@inria.fr>
++ */
++#include "ns3/log.h"
++#include "ns3/ipv4-address.h"
++#include "ns3/nstime.h"
++#include "ns3/inet-socket-address.h"
++#include "ns3/inet6-socket-address.h"
++#include "ns3/socket.h"
++#include "ns3/simulator.h"
++#include "ns3/socket-factory.h"
++#include "ns3/packet.h"
++#include <ns3/double.h>
++#include "ns3/uinteger.h"
++#include "ns3/string.h"
++#include "seq-ts-header.h"
++#include "mpeg-pkt-gen-client.h"
++#include "ns3/trace-source-accessor.h"
++#include "ns3/qos-tag.h"
++#include "ns3/enum.h"
++
++#include <cstdlib>
++#include <cstdio>
++#include <iostream>
++#include <fstream>
++#include <sstream>
++
++namespace ns3 {
++
++NS_LOG_COMPONENT_DEFINE ("MpegPktGenClient");
++NS_OBJECT_ENSURE_REGISTERED (MpegPktGenClient);
++
++TypeId
++MpegPktGenClient::GetTypeId (void)
++{
++  static TypeId tid = TypeId ("ns3::MpegPktGenClient")
++    .SetParent<Application> ()
++    .AddConstructor<MpegPktGenClient> ()
++    .AddAttribute ("RemoteAddress",
++                   "The destination Address of the outbound packets",
++                   AddressValue (),
++                   MakeAddressAccessor (&MpegPktGenClient::m_peerAddress),
++                   MakeAddressChecker ())
++    .AddAttribute ("RemotePort",
++                   "The destination port of the outbound packets",
++                   UintegerValue (100),
++                   MakeUintegerAccessor (&MpegPktGenClient::m_peerPort),
++                   MakeUintegerChecker<uint16_t> ())
++    .AddAttribute ("MaxPacketSize",
++                   "The maximum size of a packet in Bytes without the headers (8 udp, 20 ip)",
++                   UintegerValue (1468),
++                   MakeUintegerAccessor (&MpegPktGenClient::m_maxPacketSize),
++                   MakeUintegerChecker<uint16_t> ())
++    .AddAttribute ("VideoFilename",
++                   "Name of file to save/load a video to/from. By default, uses mpeg-4-auto-gen.dat",
++                   StringValue ("mpeg-4-auto-gen.dat"),
++                   MakeStringAccessor (&MpegPktGenClient::m_VideoFilename), //SetVideoFile
++                   MakeStringChecker ())
++    .AddAttribute ("GopLength",
++    			   "Number of frames per Burst period",
++    			   UintegerValue (15),
++    			   MakeUintegerAccessor (&MpegPktGenClient::m_gopLength),
++                   MakeUintegerChecker<uint16_t> ())
++    .AddAttribute ("ImageRate",
++                  "Number of frames per Second fps created by the Camera",
++                  UintegerValue (12),
++                  MakeUintegerAccessor (&MpegPktGenClient::m_imageRate),
++                  MakeUintegerChecker<uint16_t> ())
++    .AddAttribute ("IframeSize",
++                   "Size of the I-frames in the GOP in kbits",
++                   UintegerValue (1200),
++                   MakeUintegerAccessor (&MpegPktGenClient::m_iFrameSize),
++                   MakeUintegerChecker<uint32_t> ())
++    .AddAttribute ("AvBitRate",
++     			   "Average Bit rate in mbps",
++                   DoubleValue (2.0),
++                   MakeDoubleAccessor (&MpegPktGenClient::m_avBitRate),
++                   MakeDoubleChecker<double> ())
++    .AddAttribute ("PeakRate",
++                   "Peak Bit rate of the I-Frames in mbps",
++                   DoubleValue (10.0),
++                   MakeDoubleAccessor (&MpegPktGenClient::m_peakBitRate),
++                   MakeDoubleChecker<double> ())
++    .AddAttribute ("AccessClass",
++    			    "The access class (AC) for handling the data traffic in compliance with"
++                   "the QoS requirements: It can be set to AC_BE, AC_VO, AC_VI or AC_BK",
++                    EnumValue (UP_BE),
++                   MakeEnumAccessor (&MpegPktGenClient::m_accessClass),
++                   MakeEnumChecker (UP_BE, "BestEffort",
++                		   	   	    UP_BK, "Background",
++                		   	   	   	UP_EE, "ExcellentEffort",
++                		   	   	   	UP_CL, "ControlledLoad",
++                		   	   	   	UP_VI, "Video",
++                		   	   	   	UP_VO, "Voice",
++                		   	   	   	UP_NC, "NetworkControl"))
++
++  ;
++  return tid;
++}
++
++MpegPktGenClient::MpegPktGenClient ()
++{
++  NS_LOG_FUNCTION (this);
++  m_sent = 0;
++  m_round = 0;
++  m_socket = 0;
++  m_maxPacketSize = 1454; // without headers (12 App, 8 udp, 20 ip)
++  m_peakBitRate = 10;
++  m_gopLength = 15;
++  m_imageRate = 12;
++  m_avBitRate = 2;
++  m_calculatedBitRate = 0;
++  m_iFrameSize = 1200;
++  m_t0 = Simulator::Now().GetMilliSeconds();
++
++}
++
++MpegPktGenClient::MpegPktGenClient (Ipv4Address ip, uint16_t port,
++                                char *videoFile)
++{
++  NS_LOG_FUNCTION (this);
++  m_sent = 0;
++  m_round =0;
++  m_socket = 0;
++  m_peerAddress = ip;
++  m_peerPort = port;
++  m_currentEntry = 0;
++  m_maxPacketSize = 1454;//without headers (12 App, 8 udp, 20 ip, 14+4 mac)
++  m_peakBitRate = 10;
++  m_gopLength = 15;
++  m_imageRate = 12;
++  m_avBitRate = 2;
++  m_calculatedBitRate = 0;
++  m_iFrameSize = 1200;
++  m_burstPeriod = (double)m_gopLength/(double)m_imageRate;
++  m_burstDuration = (double)m_iFrameSize*1000/(double)(m_peakBitRate*1000000);
++  m_t0 = Simulator::Now().GetMilliSeconds();
++
++  if (videoFile != NULL)
++    {
++  //    SetVideoFile (videoFile);
++	  m_VideoFilename=videoFile;
++    }
++}
++
++MpegPktGenClient::~MpegPktGenClient ()
++{
++  NS_LOG_FUNCTION (this);
++  m_entries.clear ();
++}
++
++void
++MpegPktGenClient::SetRemote (Address ip, uint16_t port)
++{
++  NS_LOG_FUNCTION (this << ip << port);
++  m_entries.clear ();
++  m_peerAddress = ip;
++  m_peerPort = port;
++}
++
++void
++MpegPktGenClient::SetRemote (Ipv4Address ip, uint16_t port)
++{
++  NS_LOG_FUNCTION (this << ip << port);
++  m_entries.clear ();
++  m_peerAddress = Address (ip);
++  m_peerPort = port;
++}
++
++void
++MpegPktGenClient::SetRemote (Ipv6Address ip, uint16_t port)
++{
++  NS_LOG_FUNCTION (this << ip << port);
++  m_entries.clear ();
++  m_peerAddress = Address (ip);
++  m_peerPort = port;
++}
++
++void
++MpegPktGenClient::SetVideoFile (std::string videoFile)
++{
++  NS_LOG_FUNCTION (this << videoFile);
++  if (videoFile == "")
++    {
++	  GenerateVideo ("gen-def-file.dat");
++    }
++  else
++    {
++      GenerateVideo (videoFile);
++    }
++}
++
++void
++MpegPktGenClient::SetMaxPacketSize (uint16_t maxPacketSize)
++{
++  NS_LOG_FUNCTION (this << maxPacketSize);
++  m_maxPacketSize = maxPacketSize;
++}
++
++void
++MpegPktGenClient::SetGopLength (uint16_t gopLength)
++{
++  NS_LOG_FUNCTION (this << gopLength);
++  m_gopLength = gopLength;
++}
++
++
++uint16_t
++MpegPktGenClient::GetMaxPacketSize (void)
++{
++  NS_LOG_FUNCTION (this);
++  return m_maxPacketSize;
++}
++
++uint16_t
++MpegPktGenClient::GetGopLength (void)
++{
++  NS_LOG_FUNCTION (this);
++  return m_gopLength;
++}
++
++uint16_t
++MpegPktGenClient::GetBitRate (void)
++{
++  NS_LOG_FUNCTION (this);
++  return m_calculatedBitRate;
++}
++
++
++void
++MpegPktGenClient::DoDispose (void)
++{
++  NS_LOG_FUNCTION (this);
++  Application::DoDispose ();
++}
++
++/**
++ * \brief short one-line description of the purpose of your class
++ *
++ * A longer description of the purpose of your class after a blank
++ *
++ */
++void
++MpegPktGenClient::GenerateVideo (std::string filename)
++{
++  NS_LOG_FUNCTION (this << filename);
++  m_t0 = Simulator::Now().GetMilliSeconds();
++  uint32_t index=0;
++  char frameType;
++  VideoEntry entry;
++  std::ofstream ofVideoFile;
++  ofVideoFile.open (filename.c_str ());
++  m_burstPeriod = (double)m_gopLength/(double)m_imageRate;
++  m_burstDuration = (double)m_iFrameSize*1000/(double)(m_peakBitRate*1000000);
++  ofVideoFile <<"The Generator parameters are: GOPLength="<<m_gopLength <<"\t Peak Rate="<<m_peakBitRate<<"mbps \t"<<"Av bit rate="<<m_avBitRate<<"mbps\t Image Rate="<<m_imageRate<<" fps\t I-Frame-Size="<<m_iFrameSize<<"Kbits \t"<<
++		  	  "BurstPerdiod="<<m_burstPeriod*1000<<"ms\t"<<"BurstDuration="<<m_burstDuration*1000<<"ms\t"<< "Pkt/Frame Size at mac level ="<<m_maxPacketSize+(42/m_maxPacketSize)<<std::endl<<"The generated GOP of the video is:"<<std::endl;
++  ofVideoFile << "index" <<"\t    "<< "frameType"<<"\t    " << "timeToSend ms"<<"    " <<  "frame_size B" <<std::endl;
++  m_entries.clear ();
++  double avDataSizeInGop;
++  double sum_frames_P_sizes;//in bytes
++  double frame_I_size;//in bytes
++  double interval_P_frames;//in ms
++  uint32_t prevTime = 0;
++  // replace m_maxPacketSize by m_maxPacketSize+(42/m_maxPacketSize); // consider the bit rate at IP level
++
++  avDataSizeInGop = m_avBitRate * m_burstPeriod;//in  mb/s * s = mbit
++
++  sum_frames_P_sizes = (avDataSizeInGop * 1000000 - m_iFrameSize *1000)/8;// in Bytes
++  m_pFrameSize = sum_frames_P_sizes / (m_gopLength - 1);// in bytes
++
++
++  frame_I_size = m_iFrameSize * 1000 / 8 ;//in bytes
++
++  interval_P_frames = (m_burstPeriod-m_burstDuration) * 1000 / (m_gopLength-0.5) ;// IIIIIIIII   PPP  PPP  PPP  PPP  PPP  PPP  PPP
++  m_pFRate = sum_frames_P_sizes * 8 / (m_burstPeriod-m_burstDuration-0.5*interval_P_frames/1000);//
++
++  while (++index <= m_gopLength)
++    {
++
++   if (index == 1)
++      {
++         	   frameType = 'I';
++         	   entry.index = index;
++               entry.timeToSend = prevTime ;
++               entry.frameSize = frame_I_size;
++               entry.frameType = frameType;
++               ofVideoFile << index <<"\t\t"<< frameType<<"\t\t" << entry.timeToSend<<"\t\t" <<  frame_I_size <<std::endl;
++               prevTime = entry.timeToSend;
++
++             }
++      else
++    	  if (index == 2){
++    		  frameType = 'P';
++    		  entry.index = index;
++    		//  entry.timeToSend = prevTime + m_burstDuration * 1000 + interval_P_frames*2;
++    		  entry.timeToSend = prevTime + m_burstDuration * 1000 + interval_P_frames/2;
++    		//  prevTime = m_burstDuration*1000;
++    		//  entry.timeToSend = m_burstDuration * 1000 + interval_P_frames;
++    		  entry.frameSize = m_pFrameSize;
++    		  entry.frameType = frameType;
++    		  ofVideoFile << index <<"\t\t"<< frameType<<"\t\t"<< entry.timeToSend <<"\t\t"<<  m_pFrameSize <<std::endl;
++    		  prevTime = entry.timeToSend;
++
++    		  }
++    	  else {
++    		  frameType = 'P';
++    		  entry.index = index;
++    		  entry.timeToSend = prevTime + interval_P_frames;
++    		  entry.frameSize = m_pFrameSize;
++    		  entry.frameType = frameType;
++    		  ofVideoFile << index <<"\t\t"<< frameType<<"\t\t"<< entry.timeToSend <<"\t\t"<<  m_pFrameSize <<std::endl;
++    		  prevTime = entry.timeToSend;
++    		  }
++
++      m_entries.push_back (entry);
++
++    }
++  //prevTime = m_burstPeriod * 1000;
++  m_calculatedBitRate = avDataSizeInGop / m_burstPeriod ;
++  ofVideoFile <<std::endl<< "Verification:: The Calculated bitRate in each GoP as the data size during the GOP over the Gop Period is:"<<avDataSizeInGop<<"Mbits/"<<(m_burstPeriod*1000) <<"MSec = "<< m_calculatedBitRate<<"Mbps" <<std::endl;
++  ofVideoFile.close ();
++  m_currentEntry = 0;
++}
++
++void
++MpegPktGenClient::StartApplication (void)
++{
++  NS_LOG_FUNCTION (this);
++
++  if (m_socket == 0)
++    {
++      TypeId tid = TypeId::LookupByName ("ns3::UdpSocketFactory");
++      m_socket = Socket::CreateSocket (GetNode (), tid);
++      if (Ipv4Address::IsMatchingType(m_peerAddress) == true)
++        {
++          m_socket->Bind ();
++          m_socket->Connect (InetSocketAddress (Ipv4Address::ConvertFrom (m_peerAddress), m_peerPort));
++        }
++      else if (Ipv6Address::IsMatchingType(m_peerAddress) == true)
++        {
++          m_socket->Bind6 ();
++          m_socket->Connect (Inet6SocketAddress (Ipv6Address::ConvertFrom (m_peerAddress), m_peerPort));
++        }
++    }
++  GenerateVideo(m_VideoFilename);
++  m_socket->SetRecvCallback (MakeNullCallback<void, Ptr<Socket> > ());
++   // If we are not yet connected, there is nothing to do here
++   // The ConnectionComplete upcall will start timers at that time
++   //if (!m_connected) return;
++   ScheduleNextTx ();
++}
++
++void
++MpegPktGenClient::StopApplication ()
++{
++  NS_LOG_FUNCTION (this);
++  Simulator::Cancel (m_sendEvent);
++  Simulator::Cancel (m_startStopEvent);
++}
++
++void MpegPktGenClient::CancelEvents ()
++{
++  NS_LOG_FUNCTION (this);
++
++  if (m_sendEvent.IsRunning ())
++    { // Cancel the pending send packet event
++	  Simulator::Cancel (m_sendEvent);
++	  Simulator::Cancel (m_startStopEvent);
++    }
++
++}
++
++// Private helpers
++void
++MpegPktGenClient::ScheduleNextTx ()
++{
++  NS_LOG_FUNCTION (this);
++  Ptr<Packet> p;
++  struct VideoEntry *entry = &m_entries[m_currentEntry];
++  double ElapsedTime= 0;
++  double nextGop;
++  do
++    {
++      uint32_t i;
++  	  double dataRate;
++      for ( i = 0; i <= entry->frameSize / m_maxPacketSize; i++) //
++        {
++          if (m_entries[m_currentEntry].frameType == 'I')
++            {
++              dataRate = m_peakBitRate * 1000000;// bits/sec
++              if (i==0)
++                m_round++;
++        	  m_t0 = Simulator::Now().GetMilliSeconds();
++
++            }
++          else
++            {
++        	  dataRate = m_pFRate; //bits/sec
++            }
++
++          Time nextTime (Seconds (m_maxPacketSize * 8 / dataRate)); // Time till next packet
++          ElapsedTime += nextTime.GetMilliSeconds();
++          if (i < entry->frameSize / m_maxPacketSize)
++            {
++        	  m_sendEvent = Simulator::Schedule (MilliSeconds ( nextTime.GetMilliSeconds()*i), &MpegPktGenClient::SendPacket, this);
++        	  NS_LOG_INFO ("Round:"<<m_round<<" At time " << Simulator::Now().GetSeconds()<< " pkt num = " <<i+1 << ", of size: "<< m_maxPacketSize << "B, of a frameSize: " << entry->frameSize << "B, type =" << entry->frameType << ", Index of frame: " << entry->index<< " Sch after: " << i*nextTime.GetSeconds());
++        	}
++          else
++        	{
++        	  m_sizeRemain = entry->frameSize % m_maxPacketSize;
++        	  m_sendEvent = Simulator::Schedule (MilliSeconds ( nextTime.GetMilliSeconds()*i), &MpegPktGenClient::SendRemainPacket, this);
++        	  NS_LOG_INFO ("Round:"<<m_round<<" At time " << Simulator::Now().GetSeconds() << " pkt num = " <<i+1 << ", of size: "<< m_sizeRemain << "B, of a frameSize: " << entry->frameSize << "B, type =" << entry->frameType << ", Index of frame: " << entry->index<< " Sch after: " <<i * nextTime.GetSeconds());
++        	}
++          }
++
++
++      m_currentEntry++;
++      m_currentEntry %= m_entries.size ();
++      entry = &m_entries[m_currentEntry];
++    } while (entry->timeToSend < 0);
++
++    if ((entry->timeToSend+m_t0-Simulator::Now().GetMilliSeconds()) > 0)
++      {
++        NS_LOG_INFO ( " entry->timeToSend "  << entry->timeToSend<< " start App= " << m_t0<< " Now is:" <<Simulator::Now().GetMilliSeconds()<< " diff, nextGop sch after = " << entry->timeToSend+m_t0-Simulator::Now().GetMilliSeconds());
++        m_startStopEvent = Simulator::Schedule (MilliSeconds (entry->timeToSend+m_t0-Simulator::Now().GetMilliSeconds())  , &MpegPktGenClient::ScheduleNextTx, this);// ajouter round*1000 ms to adjust the
++      }
++    else
++     {
++       if ( (nextGop = (m_burstPeriod*1000+m_t0-Simulator::Now().GetMilliSeconds()) ) > 0)
++    	//NS_LOG_INFO (" nextGop= " <<nextGop <<" MilliSec.");
++    	//NS_LOG_INFO ("Period " << m_burstPeriod << " m_I0 " << m_t0 << " now" << Simulator::Now().GetMilliSeconds());
++    	 m_startStopEvent = Simulator::Schedule (MilliSeconds (nextGop), &MpegPktGenClient::ScheduleNextTx, this);// ajouter round*1000 ms to adjust the
++     }
++
++}
++
++void
++MpegPktGenClient::SendPacket ()
++{
++  NS_LOG_FUNCTION (this << m_maxPacketSize);
++  uint32_t size = m_maxPacketSize;
++  Ptr<Packet> p;
++  if (size>=12)
++    size-=12;
++  p = Create<Packet> (size);
++  SeqTsHeader seqTs;
++  seqTs.SetSeq (m_sent);
++  p->AddHeader (seqTs);//12 is the size of the SeqTsHeader
++  p->AddPacketTag (QosTag (m_accessClass));
++  std::stringstream addressString;
++  if (Ipv4Address::IsMatchingType(m_peerAddress) == true)
++    {
++	  addressString << Ipv4Address::ConvertFrom (m_peerAddress);
++    }
++  else if (Ipv6Address::IsMatchingType(m_peerAddress) == true)
++    {
++      addressString << Ipv6Address::ConvertFrom (m_peerAddress);
++    }
++  else
++    {
++      addressString << m_peerAddress;
++    }
++
++  if ((m_socket->Send (p)) >= 0)
++    {
++      ++m_sent;
++     /* NS_LOG_INFO ("Sent " << size << " payload without App header, with Seg num="<< seqTs.GetSeq ()<<" bytes to "
++                           << addressString.str ());*/
++    }
++  else
++    {
++      NS_LOG_INFO ("Error while sending " << size << " bytes to "
++                                          << addressString.str ());
++    }
++  m_lastStartTime = Simulator::Now ();
++}
++
++void
++MpegPktGenClient::SendRemainPacket ()
++{
++  NS_LOG_FUNCTION (this << m_sizeRemain);
++  Ptr<Packet> p;
++  if (m_sizeRemain > 12) m_sizeRemain-=12;
++  p = Create<Packet> (m_sizeRemain);
++  SeqTsHeader seqTs;
++  seqTs.SetSeq (m_sent);
++  p->AddHeader (seqTs);//12 is the size of the SeqTsHeader
++  p->AddPacketTag (QosTag (m_accessClass));
++  std::stringstream addressString;
++  if (Ipv4Address::IsMatchingType(m_peerAddress) == true)
++    {
++      addressString << Ipv4Address::ConvertFrom (m_peerAddress);
++    }
++  else if (Ipv6Address::IsMatchingType(m_peerAddress) == true)
++    {
++      addressString << Ipv6Address::ConvertFrom (m_peerAddress);
++    }
++  else
++    {
++      addressString << m_peerAddress;
++    }
++
++  if ((m_socket->Send (p)) >= 0)
++    {
++      ++m_sent;
++     /* NS_LOG_INFO ("Sent " << m_sizeRemain << " with Seg num="<< seqTs.GetSeq ()<<" bytes to "
++                           << addressString.str ());*/
++    }
++  else
++    {
++      NS_LOG_INFO ("Error while sending " << m_sizeRemain << " bytes to "
++                                          << addressString.str ());
++    }
++  m_lastStartTime = Simulator::Now ();
++}
++
++void
++MpegPktGenClient::ConnectionSucceeded (Ptr<Socket> socket)
++{
++  NS_LOG_FUNCTION (this << socket);
++  m_connected = true;
++}
++
++void
++MpegPktGenClient::ConnectionFailed (Ptr<Socket> socket)
++{
++  NS_LOG_FUNCTION (this << socket);
++}
++
++} // Namespace ns3
+diff -r 7e561c4b7802 -r 5185cf3b5550 src/applications/model/mpeg-pkt-gen-client.h
+--- /dev/null	Thu Jan 01 00:00:00 1970 +0000
++++ b/src/applications/model/mpeg-pkt-gen-client.h	Tue Jan 19 15:37:29 2016 +0100
+@@ -0,0 +1,178 @@
++/* -*- Mode:C++; c-file-style:"gnu"; indent-tabs-mode:nil; -*- */
++/*
++ *  Copyright (c) 2014/2015 INRIA, ALSTOM Transport
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License version 2 as
++ * published by the Free Software Foundation;
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
++ *
++ * Author: Abdulhalim DANDOUSH <abdulhalim.dandoush@inria.fr>
++ *
++ */
++
++#ifndef MPEG_PKT_GEN_CLIENT_H
++#define MPEG_PKT_GEN_CLIENT_H
++
++#include "ns3/application.h"
++#include "ns3/event-id.h"
++#include "ns3/ptr.h"
++#include "ns3/ipv4-address.h"
++#include "ns3/qos-tag.h"
++#include <stdint.h>
++
++#include <vector>
++
++namespace ns3 {
++
++class Socket;
++class Packet;
++
++/**
++ * \ingroup mpegpktgen
++ * \class MpegPktGenClient
++ * \brief A parameterized MPEG-4 traffic generator
++ *
++  * Create MpegPktGenClient application which sends udp packets based on a generated
++ * file of an MPEG4 stream. The generated file will contain 4 columns:
++ * -1- the first one represents the frame index
++ * -2- the second one indicates the type of the frame: I, P or (even B types that is not used now)
++ * -3- the third one indicates the time on which the frame was generated by the encoder
++ * -4- the fourth one indicates the frame size in byte
++ * This file will be generated using a pre-defined parameters such as the Average bit rate, peak rate,
++ *  burst duration, buerst period, I-Frame size, GoP length and pkt size
++ */
++class MpegPktGenClient : public Application
++{
++public:
++  static TypeId
++  GetTypeId (void);
++  /**
++   * \brief creates a videoBasedStreamer application
++   */
++  MpegPktGenClient ();
++
++  /**
++   * \brief creates a videoBasedStreamer application
++   * \param ip the destination ip address to which the stream will be sent
++   * \param port the destination udp port to which the stream will be sent
++   * \param videoFile a path to an auto-generated MPEG4 video file
++   *
++   */
++
++  MpegPktGenClient (Ipv4Address ip, uint16_t port, char *videoFile);
++  ~MpegPktGenClient ();
++
++  /**
++   * \brief set the destination IP address and port
++   * \param ip the destination ip address to which the stream will be sent
++   * \param port the destination udp port to which the stream will be sent
++   */
++  void SetRemote (Address ip, uint16_t port);
++  void SetRemote (Ipv4Address ip, uint16_t port);
++  void SetRemote (Ipv6Address ip, uint16_t port);
++
++  /**
++   * \brief set the auto-generated video file to be used by the application
++   * \param filename a path to an MPEG4 video file formatted as follows:
++   *  Frame No Frametype   Time[ms]    Length [byte]
++   *  Frame No Frametype   Time[ms]    Length [byte]
++   *  ...
++   */
++  void SetVideoFile (std::string filename);
++
++  /**
++   * \return the maximum packet size
++   */
++  uint16_t GetMaxPacketSize (void);
++  /**
++     * \return the Gop Length
++     */
++  uint16_t GetGopLength (void);
++
++  /**
++       * \return the current Bit rate calculated for a Gop Period (Burst length) in Mbps
++       */
++    uint16_t GetBitRate (void);
++
++  /**
++   * \param maxPacketSize The maximum packet size
++   */
++  void SetMaxPacketSize (uint16_t maxPacketSize);
++  /**
++     * \param gopLength The GOP length in frames
++     */
++  void SetGopLength (uint16_t gopLength);
++
++protected:
++  virtual void DoDispose (void);
++
++private:
++  /**
++     * \brief load the auto-generated video file to be used by the application
++     * It fills in the m_entries vector, each entry will contain the frame size and type
++     *  and the waiting time before sending its pakets (time to be added to the current time)
++     * \param filename a path to an MPEG4 video file
++  */
++
++  void GenerateVideo (std::string filename);
++  virtual void StartApplication (void);
++  virtual void StopApplication (void);
++  //helpers
++  void CancelEvents ();
++  void SendPacket ();
++  void SendRemainPacket ();
++  void ScheduleNextTx ();//next pak to be sent
++  void ConnectionSucceeded (Ptr<Socket> socket);
++  void ConnectionFailed (Ptr<Socket> socket);
++
++  uint32_t m_sent;
++  Ptr<Socket> m_socket;
++  Address m_peerAddress;
++  uint16_t m_peerPort;
++  EventId         m_startStopEvent;     // Event id for next start or stop event
++  EventId         m_sendEvent;    // Eventid of pending "send packet" event
++  bool            m_sending;      // True if currently in sending state
++  bool            m_connected;    // True if connected
++  UserPriority    m_accessClass; //!< Access Class for QoS requirements
++  struct VideoEntry
++  {
++	uint16_t index;
++    double timeToSend;// diff between the perv and curr times in ms
++    uint32_t frameSize;//the size of the frame I or P, FrameSize/m_maxPacketSize = # pkts of the given frame
++    char frameType;// I or P
++  };
++  std::vector<struct VideoEntry> m_entries;
++  uint32_t m_currentEntry;
++  uint16_t m_gopLength;
++  uint16_t m_imageRate;//Camera imahe rate in frame/sec (fps)
++  double m_burstDuration;//Period of the I-frame in seconds
++  double m_burstPeriod;//Period of the GoP in seconds, from I-frame to I-frame
++  uint32_t m_iFrameSize;//in kbits
++  double m_pFrameSize; // in bytes
++  double m_avBitRate;
++  double m_peakBitRate;
++  double m_pFRate;//sending rate of Frame P bits/sec
++  uint16_t m_maxPacketSize;
++  uint16_t m_sizeRemain;
++  uint32_t m_round;//number of repetition of the transmission [I P P P P P P P P ..], how many times we retransmitt the sequence I p p p, I p p p ..
++
++  uint32_t m_totBytes;     // Total bytes sent in a GOP so far
++  uint16_t m_calculatedBitRate; //pendant a Gop in mbps
++  std::string m_VideoFilename;
++  Time m_lastStartTime;
++  double m_t0;//starting time of App
++
++};
++
++} // namespace ns3
++
++#endif /* MPEG_PKT_GEN_CLIENT_H */
+diff -r 7e561c4b7802 -r 5185cf3b5550 src/applications/wscript
+--- a/src/applications/wscript	Tue Jan 19 10:06:41 2016 +0100
++++ b/src/applications/wscript	Tue Jan 19 15:37:29 2016 +0100
+@@ -14,6 +14,7 @@
+         'model/udp-server.cc',
+         'model/seq-ts-header.cc',
+         'model/udp-trace-client.cc',
++        'model/mpeg-pkt-gen-client.cc',
+         'model/packet-loss-counter.cc',
+         'model/udp-echo-client.cc',
+         'model/udp-echo-server.cc',
+@@ -23,6 +24,7 @@
+         'helper/on-off-helper.cc',
+         'helper/packet-sink-helper.cc',
+         'helper/ping6-helper.cc',
++        'helper/mpeg-pkt-gen-client-helper.cc',
+         'helper/udp-client-server-helper.cc',
+         'helper/udp-echo-helper.cc',
+         'helper/v4ping-helper.cc',
+@@ -47,6 +49,7 @@
+         'model/udp-client.h',
+         'model/udp-server.h',
+         'model/seq-ts-header.h',
++        'model/mpeg-pkt-gen-client.h',
+         'model/udp-trace-client.h',
+         'model/packet-loss-counter.h',
+         'model/udp-echo-client.h',
+@@ -58,6 +61,7 @@
+         'helper/packet-sink-helper.h',
+         'helper/ping6-helper.h',
+         'helper/udp-client-server-helper.h',
++        'helper/mpeg-pkt-gen-client-helper.h',
+         'helper/udp-echo-helper.h',
+         'helper/v4ping-helper.h',
+         'helper/radvd-helper.h',
