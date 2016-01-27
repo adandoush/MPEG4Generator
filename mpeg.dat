@@ -1,0 +1,20 @@
+The Generator parameters are: GOPLength=15	 Peak Rate=10mbps 	Av bit rate=2mbps	 Image Rate=12 fps	 I-Frame-Size=1200Kbits 	BurstPerdiod=1250ms	BurstDuration=120ms	Pkt/Frame Size at mac level =1460
+The generated GOP of the video is:
+index	    frameType	    timeToSend ms    frame_size B
+1		I		0		150000
+2		P		158.966		11607.1
+3		P		235.931		11607.1
+4		P		312.931		11607.1
+5		P		389.931		11607.1
+6		P		466.931		11607.1
+7		P		543.931		11607.1
+8		P		620.931		11607.1
+9		P		697.931		11607.1
+10		P		774.931		11607.1
+11		P		851.931		11607.1
+12		P		928.931		11607.1
+13		P		1005.93		11607.1
+14		P		1082.93		11607.1
+15		P		1159.93		11607.1
+
+Verification:: The Calculated bitRate in each GoP as the data size during the GOP over the Gop Period is:2.5Mbits/1250MSec = 2Mbps
