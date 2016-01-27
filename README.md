@@ -54,32 +54,7 @@ m_pFRate = sum_frames_P_sizes * 8 / (m_burstPeriod-m_burstDuration);//bps
 
 interval_P_frames = (m_burstPeriod-m_burstDuration) * 1000 / (m_gopLength) ;// I   P P P P P P P P P P P P P P I   P ...
 
-7. Then we can organize the Frames in each GOP. An example of typical GOP (with the default value of the key parameters) can be seen in the auto-generated video file:
-
-The Generator parameters are: GOPLength=15	 Peak Rate=10mbps 	Av bit rate=2mbps	 Image Rate=12 fps	 I-Frame-Size=1200Kbits 	BurstPerdiod=1250ms	BurstDuration=120ms	Pkt Size=1468 
-
-The generated GOP of the video is: 
-=====       =========       =============    ==============
-index	      frameType	      timeToSend ms    frame_I_size B 
-=====       =========       =============    ==============
-1	              I             		  0	            	150000 
-2		P		270.667		11607.1 
-3		P		345.333		11607.1 
-4		P		420.333		11607.1 
-5		P		495.333		11607.1 
-6		P		570.333		11607.1 
-7		P		645.333		11607.1 
-8		P		720.333		11607.1 
-9		P		795.333		11607.1 
-10		P		870.333		11607.1 
-11		P		945.333		11607.1 
-12		P		1020.33		11607.1 
-13		P		1095.33		11607.1 
-14		P		1170.33		11607.1 
-15		P		1245.33		11607.1
-=====       =========       =============    ==============      
-
-Verification:: The Calculated bitRate in each GoP as the data size during the GOP over the Gop Period is:2.5Mbits/1250MSec = 2Mbps
+7. Then we can organize the Frames in each GOP. An example of typical GOP (with the default value of the key parameters) can be found in the mpeg.dat file
 
 8. Our next step is to tranfer the characteristics into a packets generator while respecting the average Bit rate and the packet size key attributes (e.g. m_avBitRate=2 mbps and m_maxPacketSize=1468 Bytes).
 
