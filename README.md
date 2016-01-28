@@ -33,30 +33,21 @@ Design and calculation
 ======================
 Our objective is to simulate the packet generation events for the frames of a GOP and to repeate the process until the stop time of the application. To that end, we have to calculate the number of packets for each frame and the inter packet durations. Then, we can scheduler the sending events.
 
-The basic calculation is done as follow:
-1. calculate the ``m_burstPeriod`` as the value of (double)m_gopLength/(double)m_imageRate;
+The basic calculation is done as follow::
 
-2. m_burstDuration = (double)m_iFrameSize*1000/(double)(m_peakBitRate*1000000);
-
-3. The amount of data in a Gop is computed as::
-	avDataSizeInGop = m_avBitRate * m_burstPeriod;//in  mb/s * s = mbit
-
-4. We subtract the I-Frame-Size from the total amount of data in a GOP to get the summation of the P-Frames sizes
-
-sum_frames_P_sizes = (avDataSizeInGop * 1000000 - m_iFrameSize *1000)/8;// in Bytes
-
-5. The size of each P-Frame and the bitRate at which we send them to respecte the avBitRate are calculated as follow:
-
-m_pFrameSize = sum_frames_P_sizes / (m_gopLength - 1);// in bytes
-
-m_pFRate = sum_frames_P_sizes * 8 / (m_burstPeriod-m_burstDuration);//bps
-6. Given the m_burstDuration (duration of the I-Frame in a GOP), we calculate the inter-P-Frame durations
-
-interval_P_frames = (m_burstPeriod-m_burstDuration) * 1000 / (m_gopLength) ;// I   P P P P P P P P P P P P P P I   P ...
-
-7. Then we can organize the Frames in each GOP. An example of typical GOP (with the default value of the key parameters) can be found in the mpeg.dat file
-
-8. Our next step is to tranfer the characteristics into a packets generator while respecting the average Bit rate and the packet size key attributes (e.g. m_avBitRate=2 mbps and m_maxPacketSize=1468 Bytes).
+    1. calculate the ``m_burstPeriod`` as the value of (double)m_gopLength/(double)m_imageRate;
+    2. m_burstDuration = (double)m_iFrameSize*1000/(double)(m_peakBitRate*1000000);
+    3. The amount of data in a Gop is computed as 
+    avDataSizeInGop = m_avBitRate * m_burstPeriod;//in  mb/s * s = mbit
+    4. We subtract the I-Frame-Size from the total amount of data in a GOP to get the summation of the P-Frames sizes
+    sum_frames_P_sizes = (avDataSizeInGop * 1000000 - m_iFrameSize *1000)/8;// in Bytes
+    5. The size of each P-Frame and the bitRate at which we send them to respecte the avBitRate are calculated as follow
+    m_pFrameSize = sum_frames_P_sizes / (m_gopLength - 1);// in bytes
+    m_pFRate = sum_frames_P_sizes * 8 / (m_burstPeriod-m_burstDuration);//bps
+    6. Given the m_burstDuration (duration of the I-Frame in a GOP), we calculate the inter-P-Frame durations
+    interval_P_frames = (m_burstPeriod-m_burstDuration) * 1000 / (m_gopLength) ;// I   P P P P P P P P P P P P P P I   P ...
+    7. Then we can organize the Frames in each GOP. An example of typical GOP (with the default value of the key parameters) can be found in the mpeg.dat file
+    8. Our next step is to tranfer the characteristics into a packets generator while respecting the average Bit rate and the packet size key attributes (e.g. m_avBitRate=2 mbps and m_maxPacketSize=1468 Bytes).
 
 Usage 
 *****
