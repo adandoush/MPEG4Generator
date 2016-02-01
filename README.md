@@ -2,12 +2,12 @@ Applications
 ------------
 
 Mpeg- Model Description
-*****************
+=======================
 
 The video generator module goal is to provide a flexible configurable packet generator of MPEG-4-like UDP traffic. The source code for the new module so-called (MpegPktGenClient) lives in the directory ``src/applications``. A helper module (MpegPktGenClientHelper) is also implemented to facilitate it's use. We can change the video streaming traffic shape, i.e. the GOP, by simply changing the key parameters values explained hereafter. The Video generator client can work with any udp based server like the already implemented in NS-3 UdpServer. An example of usage, expected results, and an analysis of the output trace are presented. 
 
 Attributes
-==========
+**********
 
 The Mpeg packet generator module is a configurable application through the following key attributes (a default value is set to every attribute).
 
@@ -49,8 +49,8 @@ The basic calculation is done as follow::
     7. Then we can organize the Frames in each GOP. An example of typical GOP (with the default value of the key parameters) can be found in the mpeg.dat file
     8. Our next step is to tranfer the characteristics into a packets generator while respecting the average Bit rate and the packet size key attributes (e.g. m_avBitRate=2 mbps and m_maxPacketSize=1468 Bytes).
 
-Usage 
-*****
+Usage and example
+==================
 
 The module usage is extremely simple. The helper will take care of about everything. Default values can be changed easily as shown in the code below.
 
@@ -84,11 +84,12 @@ The typical use is to creat a UDP server Application that is listing on a partic
 
 
 A complete example
-==================
+******************
+
 The complete example is located in `examples/mpeg-gen-pkt-client`.
 
 
 Validation through output analysis
-**********************************
+==================================
 
 We provide in this section a module validation against a simple test network.
