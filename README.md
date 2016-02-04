@@ -94,4 +94,31 @@ Validation through output analysis
 
 We provide in this section a module validation by analyzing the results obtained from running the simple test network in `examples/mpeg-gen-pkt-client`.
 
-In this example, we have two nodes interconnected through a PPP link of good bandwidth (e.g. 100 mbps). we aim at verifying the well functionality of the video generator by validating the expected results discussed in a previous subsection with the results obtained from the simulation. To that end, we present snapshots from the exchanged packets between the client and the server applications. The presented data are extracted from the pcap captured files. A graphical presentation of the captured data is introduced in Figure GOP.jpeg. 
+In this example, we have two nodes interconnected through a PPP link of good bandwidth (e.g. 100 mbps). we aim at verifying the well functionality of the video generator by validating the expected results discussed in a previous subsection with the results obtained from the simulation. To that end, we present snapshots from the exchanged packets between the client and the server applications. The presented data are extracted from the pcap captured files. A graphical presentation of the captured data is introduced in Figure GOP.jpeg.
+
+The two first lines correspond to the ARP protocol. The first video packet of the first frame (I-Frame) in the
+first GOP recieved by the UDP server after 0.001119sec from the starting time of the application. Then the next packet is received after 0.001Sec as expected in the theoritical calculation above. The last packet of the first I frame has the size 1080 at the IP level as showen in the second line from the second segment of the snapshot. Then we have inter frames space and a frame of type P/B starts. Notice that the inter packet arrival time between lines 3 and 4 of the second segment presented below is 0.009sec that is very close to the theoritical value::
+
+    01:00:01.001119 IP 192.168.1.1.49153 > 192.168.1.2.4000: UDP, length 1460
+    01:00:01.002119 IP 192.168.1.1.49153 > 192.168.1.2.4000: UDP, length 1460
+    01:00:01.003119 IP 192.168.1.1.49153 > 192.168.1.2.4000: UDP, length 1460
+    01:00:01.004119 IP 192.168.1.1.49153 > 192.168.1.2.4000: UDP, length 1460
+    01:00:01.005119 IP 192.168.1.1.49153 > 192.168.1.2.4000: UDP, length 1460
+    ...
+    01:00:01.102119 IP 192.168.1.1.49153 > 192.168.1.2.4000: UDP, length 1460
+    01:00:01.103088 IP 192.168.1.1.49153 > 192.168.1.2.4000: UDP, length 1080
+    01:00:01.159119 IP 192.168.1.1.49153 > 192.168.1.2.4000: UDP, length 1460
+    01:00:01.168119 IP 192.168.1.1.49153 > 192.168.1.2.4000: UDP, length 1460
+    01:00:01.177119 IP 192.168.1.1.49153 > 192.168.1.2.4000: UDP, length 1460
+    01:00:01.186119 IP 192.168.1.1.49153 > 192.168.1.2.4000: UDP, length 1460
+    01:00:01.195119 IP 192.168.1.1.49153 > 192.168.1.2.4000: UDP, length 1460
+    01:00:01.204119 IP 192.168.1.1.49153 > 192.168.1.2.4000: UDP, length 1460
+    01:00:01.213119 IP 192.168.1.1.49153 > 192.168.1.2.4000: UDP, length 1460
+    01:00:01.222113 IP 192.168.1.1.49153 > 192.168.1.2.4000: UDP, length 1387
+    01:00:01.236119 IP 192.168.1.1.49153 > 192.168.1.2.4000: UDP, length 1460
+    
+Coclusion
+=========
+We have implemented and presented a configurable and flexible video traffic generator that can generate traffic based on particular values of the basic characteristic of Mpeg-compatible cameras such as GOP length, I-frame bit rate, average bit rate, etc.
+
+
