@@ -96,7 +96,7 @@ We provide in this section a module validation by analyzing the results obtained
 
 In this example, we have two nodes interconnected through a PPP link of good bandwidth (e.g. 100 mbps). we aim at verifying the well functionality of the video generator by validating the expected results discussed in a previous subsection with the results obtained from the simulation. To that end, we present snapshots from the exchanged packets between the client and the server applications. The presented data are extracted from the pcap captured files. A graphical presentation of the captured data is introduced in Figure GOP.jpeg.
 
-The two first lines correspond to the ARP protocol. The first video packet of the first frame (I-Frame) in the
+The first video packet of the first frame (I-Frame) in the
 first GOP recieved by the UDP server after 0.001119sec from the starting time of the application. Then the next packet is received after 0.001Sec as expected in the theoritical calculation above. The last packet of the first I frame has the size 1080 at the IP level as showen in the second line from the second segment of the snapshot. Then we have inter frames space and a frame of type P/B starts. Notice that the inter packet arrival time between lines 3 and 4 of the second segment presented below is 0.009sec that is very close to the theoritical value::
 
     01:00:01.001119 IP 192.168.1.1.49153 > 192.168.1.2.4000: UDP, length 1460
